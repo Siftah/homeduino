@@ -1,17 +1,29 @@
 #include <SerialCommand.h>
 #include <RFControl.h>
-#include <DHTlib.h>
+#include <RCSwitch.h>
+
+/*
+1 On    Decimal: 3402623 (24Bit) Binary: 001100111110101101111111 PulseLength: 306 microseconds Protocol: 1
+1 Off   Decimal: 3402615 (24Bit) Binary: 001100111110101101110111 PulseLength: 307 microseconds Protocol: 1
+2 On    Decimal: 3402619 (24Bit) Binary: 001100111110101101111011 PulseLength: 307 microseconds Protocol: 1
+2 Off   Decimal: 3402611 (24Bit) Binary: 001100111110101101110011 PulseLength: 307 microseconds Protocol: 1
+3 On    Decimal: 3402621 (24Bit) Binary: 001100111110101101111101 PulseLength: 307 microseconds Protocol: 1
+3 Off   Decimal: 3402613 (24Bit) Binary: 001100111110101101110101 PulseLength: 307 microseconds Protocol: 1
+4 On    Decimal: 3402622 (24Bit) Binary: 001100111110101101111110 PulseLength: 306 microseconds Protocol: 1
+4 Off   Decimal: 3402614 (24Bit) Binary: 001100111110101101110110 PulseLength: 307 microseconds Protocol: 1
+All Off Decimal: 3402616 (24Bit) Binary: 001100111110101101111000 PulseLength: 307 microseconds Protocol: 1
+D On     Decimal: 5457 (24Bit) Binary: 000000000001010101010001 Tri-State: 00000FFFFF0F PulseLength: 325 microseconds Protocol: 1
+D Off    Decimal: 5396 (24Bit) Binary: 000000000001010100010100 Tri-State: 00000FFF0FF0 PulseLength: 324 microseconds Protocol: 1
+*/
+RCSwitch mySwitch = RCSwitch();
 
 void argument_error();
 
 SerialCommand sCmd;
 
 #include "rfcontrol_command.h"
-#ifdef KEYPAD_ENABLED
-#include "keypad_command.h"
-#endif
-#include "dht_command.h"
 
+void ts_command();
 void digital_read_command();
 void digital_write_command();
 void analog_read_command();
@@ -23,6 +35,9 @@ void unrecognized(const char *command);
 
 
 void setup() {
+  mySwitch.enableTransmit(4);
+  mySwitch.setProtocol(1);
+  mySwitch.setRepeatTransmit(10);
 	Serial.begin(115200);
 	// Setup callbacks for SerialCommand commands
 	sCmd.addCommand("DR", digital_read_command);
@@ -32,11 +47,8 @@ void setup() {
 	sCmd.addCommand("PM", pin_mode_command);
 	sCmd.addCommand("RF", rfcontrol_command);    
 	sCmd.addCommand("PING", ping_command);
-	sCmd.addCommand("DHT", dht_command);
   sCmd.addCommand("RESET", reset_command);
-  #ifdef KEYPAD_ENABLED
-  sCmd.addCommand("K", keypad_command);
-  #endif
+  sCmd.addCommand("TS", ts_command);
 	sCmd.setDefaultHandler(unrecognized);
 	Serial.print("ready\r\n");
 }
@@ -46,10 +58,6 @@ void loop() {
 	sCmd.readSerial();
 	// handle rf control receiving
 	rfcontrol_loop();
-  #ifdef KEYPAD_ENABLED
-	// handle keypad keypress
-	keypad_loop();
-  #endif
 }
 
 void digital_read_command() {
@@ -148,6 +156,18 @@ void reset_command() {
   RFControl::stopReceiving();
   Serial.print("ready\r\n");
 }
+
+void ts_command() {
+  char *arg;
+  arg = sCmd.next();
+  if (arg != NULL) {
+    mySwitch.setPulseLength(125);
+    mySwitch.sendTriState(arg);
+  }
+  Serial.print("TS ");
+  Serial.println(arg);
+}
+
 
 void argument_error() {
 	Serial.print("ERR argument_error\r\n");
